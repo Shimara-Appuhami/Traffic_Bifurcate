@@ -6,6 +6,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import JSZip from "jszip";
 import { marked } from "marked";
+import { StructurePanel } from "@/components/structure-panel";
 
 /* ----------------------------- Types ----------------------------- */
 
@@ -98,7 +99,7 @@ const PackageIcon = ({ className }: { className?: string }) => (
 // Enhanced sanitizer to ensure perfect structure for AI
 const sanitizeMarkdown = (text: string) => {
   let clean = text;
-  
+
   // 1. Remove conversational noise lines
   const noisePhrases = [
     "Please Wait",
@@ -109,7 +110,7 @@ const sanitizeMarkdown = (text: string) => {
     "We'd let you in now",
     "Drag and drop"
   ];
-  
+
   noisePhrases.forEach(phrase => {
     const regex = new RegExp(`.*${phrase}.*`, 'i'); // Case insensitive
     clean = clean.replace(regex, '');
@@ -119,10 +120,10 @@ const sanitizeMarkdown = (text: string) => {
   clean = clean.replace(/-{20,}/g, ''); // Remove long lines of dashes
 
   // 3. Remove "explore more" footer noise
-  clean = clean.replace(/explore more\s*-/gi, ''); 
+  clean = clean.replace(/explore more\s*-/gi, '');
 
   // --- NEW: STRUCTURAL FIXES ---
-  
+
   // 4. FIX: Convert "List Item Headers" (e.g., "- 1. What You'll Do") to H3 Headers
   // This breaks the link between the list above and the section below
   clean = clean.replace(/^\s*-\s*(\d+\.\s+(?:What You'll Do|Requirements|Benefits|Location|Key Responsibility|What You'll Be Doing|Skills & Personal Qualities|Job Description|Notes))/gm, '### $1');
@@ -193,8 +194,8 @@ const MarkdownComponents = {
   ul: ({ node, ...props }: any) => <ul className="list-disc pl-6 mb-4 space-y-2 text-slate-600" {...props} />,
   ol: ({ node, ...props }: any) => <ol className="list-decimal pl-6 mb-4 space-y-2 text-slate-600" {...props} />,
   li: ({ node, ...props }: any) => <li className="pl-1" {...props} />,
-  code: ({ node, inline, ...props }: any) => 
-    inline 
+  code: ({ node, inline, ...props }: any) =>
+    inline
       ? <code className="bg-slate-100 text-rose-600 px-1.5 py-0.5 rounded text-sm font-mono font-semibold" {...props} />
       : <code className="block  text-slate-900 p-4  text-sm font-mono overflow-x-auto mb-6 " {...props} />,
   blockquote: ({ node, ...props }: any) => <blockquote className=" pl-4 italic text-slate-500 mb-4 py-2 " {...props} />,
@@ -214,7 +215,7 @@ export default function AiMirrorPage() {
 
   // Cache for markdown content
   const [markdownByUrl, setMarkdownByUrl] = useState<Record<string, MarkdownCacheEntry>>({});
-  
+
   // Display state
   const [selectedMarkdown, setSelectedMarkdown] = useState("");
   const [selectedMarkdownSource, setSelectedMarkdownSource] = useState("");
@@ -226,7 +227,12 @@ export default function AiMirrorPage() {
   const [exportProgress, setExportProgress] = useState("");
 
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
-  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+
+  // Structure verification view state
+  const [activeTab, setActiveTab] = useState<"preview" | "structure">("preview");
 
   /* ------------------------ Hydrate State ------------------------ */
 
@@ -259,10 +265,10 @@ export default function AiMirrorPage() {
       });
       if (!res.ok) throw new Error("Extraction failed");
       const rawText = (await res.text()).trim();
-      
+
       // CLEANSE THE CONTENT
       const cleanText = sanitizeMarkdown(rawText);
-      
+
       const entry: MarkdownCacheEntry = { content: cleanText, source: "live extract" };
       setMarkdownByUrl((prev) => ({ ...prev, [page.url]: entry }));
       return entry;
@@ -305,17 +311,17 @@ export default function AiMirrorPage() {
   };
 
   /* ---------------------- Download ZIP Logic ----------------------- */
-  
+
   const handleDownloadZip = async () => {
     if (sitemapPages.length === 0) return;
-    
+
     setIsExportingZip(true);
     setExportProgress("Initializing...");
 
     try {
       const zip = new JSZip();
       const folder = zip.folder("ai-mirror-content");
-      
+
       const fileEntries: { filename: string, displayName: string }[] = [];
 
       // Helper to sanitize filename
@@ -323,14 +329,14 @@ export default function AiMirrorPage() {
         let name = url.replace(rootUrl, "").replace(/^\//, "");
         name = name.replace(/[^a-z0-9-_\/]/gi, '_');
         if (name.endsWith('/')) name = name.slice(0, -1);
-        if (!name) name = "home"; 
+        if (!name) name = "home";
         return `${name}.html`;
       };
 
       for (let i = 0; i < sitemapPages.length; i++) {
         const page = sitemapPages[i];
         setExportProgress(`Converting ${i + 1} of ${sitemapPages.length}...`);
-        
+
         let content = "";
 
         if (markdownByUrl[page.url]) {
@@ -346,7 +352,7 @@ export default function AiMirrorPage() {
               const rawText = (await res.text()).trim();
               // CLEANSE THE CONTENT
               content = sanitizeMarkdown(rawText);
-              
+
               setMarkdownByUrl(prev => ({ ...prev, [page.url]: { content, source: "live extract" } }));
             } else {
               content = `# Error\n\nFailed to fetch content for ${page.url}. Status: ${res.status}`;
@@ -358,7 +364,7 @@ export default function AiMirrorPage() {
 
         // Convert Markdown to HTML
         const htmlBody = await marked.parse(content);
-        
+
         // Build HTML Document
         const fullHtmlDocument = `
 <!DOCTYPE html>
@@ -441,7 +447,7 @@ export default function AiMirrorPage() {
 
       setExportProgress("Compressing files...");
       const blob = await zip.generateAsync({ type: "blob" });
-      
+
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -469,14 +475,14 @@ export default function AiMirrorPage() {
       <SidebarRail aiMirrorActive />
 
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
-        
+
         <header className="flex-none px-8 py-6 bg-white border-b border-slate-200 flex justify-between items-center shadow-sm z-10">
           <div className="flex items-center gap-2 text-sm text-slate-500">
             <h1 className="text-2xl font-bold text-slate-900">AI Mirror HTML Export</h1>
           </div>
 
           <div className="flex items-center gap-3">
-             <button
+            <button
               onClick={handleDownloadZip}
               disabled={isExportingZip || sitemapPages.length === 0}
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -494,7 +500,7 @@ export default function AiMirrorPage() {
               )}
             </button>
 
-             <button
+            <button
               onClick={() => downloadTextFile(resultXml, "sitemap.xml", "application/xml")}
               disabled={!resultXml}
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -506,7 +512,7 @@ export default function AiMirrorPage() {
         </header>
 
         <div className="flex-1 flex overflow-hidden">
-          
+
           {/* Left Sidebar: List */}
           <div className="w-80 flex-none bg-white border-r border-slate-200 flex flex-col">
             <div className="h-14 border-b border-slate-100 flex items-center px-4 justify-between flex-shrink-0">
@@ -517,7 +523,7 @@ export default function AiMirrorPage() {
               <div className="p-2 space-y-1">
                 {sitemapPages.map((page) => {
                   const isActive = selectedPage?.url === page.url;
-                  const relativePath = page.url.replace(rootUrl, "").replace(/^\//, "") || "Home"; 
+                  const relativePath = page.url.replace(rootUrl, "").replace(/^\//, "") || "Home";
                   return (
                     <button
                       key={page.url}
@@ -551,27 +557,80 @@ export default function AiMirrorPage() {
               </div>
             ) : (
               <div className="max-w-4xl mx-auto w-full pb-12">
-                
-                <div className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur-sm px-6 py-3 border-b border-slate-200">
-                  <div className="flex justify-between items-center w-full">
+
+                <div className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur-sm border-b border-slate-200">
+                  {/* Tab Navigation */}
+                  <div className="flex items-center justify-between px-6 py-3">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setActiveTab("preview")}
+                        className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${activeTab === "preview"
+                          ? "bg-white text-indigo-700 shadow-sm border border-indigo-100"
+                          : "text-slate-500 hover:text-slate-700 hover:bg-slate-100"
+                          }`}
+                      >
+                        📄 Preview
+                      </button>
+                      <button
+                        onClick={() => setActiveTab("structure")}
+                        className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${activeTab === "structure"
+                          ? "bg-white text-indigo-700 shadow-sm border border-indigo-100"
+                          : "text-slate-500 hover:text-slate-700 hover:bg-slate-100"
+                          }`}
+                      >
+                        🤖 AI Structure
+                      </button>
+                    </div>
                     <div className="flex items-center gap-3">
                       <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border ${selectedMarkdownSource === "live extract" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-slate-100 text-slate-500 border-slate-200"}`}>
                         {selectedMarkdownSource === "live extract" ? <RefreshIcon className="w-3 h-3" /> : <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>}
-                        {selectedMarkdownSource === "live extract" ? "Live Extraction" : "Cached Scaffold"}
+                        {selectedMarkdownSource === "live extract" ? "Live" : "Cached"}
                       </span>
-                      <a href={selectedPage.url} target="_blank" rel="noreferrer" className="text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors flex items-center gap-1"><span>View Original</span><ExternalLinkIcon className="w-3 h-3" /></a>
+                      <a href={selectedPage.url} target="_blank" rel="noreferrer" className="text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors flex items-center gap-1"><span>Original</span><ExternalLinkIcon className="w-3 h-3" /></a>
+                      <button onClick={handleCopy} className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:text-indigo-600 hover:border-indigo-200 hover:shadow-sm transition-all shadow-sm">
+                        {copyMessage ? <><CheckCircleIcon className="w-4 h-4 text-emerald-500" /></> : <><CopyIcon className="w-4 h-4 text-slate-400" /></>}
+                      </button>
                     </div>
-                    <button onClick={handleCopy} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:text-indigo-600 hover:border-indigo-200 hover:shadow-sm transition-all shadow-sm active:scale-95">
-                      {copyMessage ? <><CheckCircleIcon className="w-4 h-4 text-emerald-500" /> {copyMessage}</> : <><CopyIcon className="w-4 h-4 text-slate-400" /> <span>Copy</span></>}
-                    </button>
                   </div>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 relative overflow-hidden">
-                  {isMarkdownLoading && <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-20 flex flex-col items-center justify-center"><div className="relative w-12 h-12"><div className="absolute inset-0 border-4 border-indigo-100 rounded-full"></div><div className="absolute inset-0 border-4 border-indigo-600 rounded-full border-t-transparent animate-spin"></div></div><p className="mt-4 text-sm font-medium text-slate-600 animate-pulse">Generating preview...</p></div>}
-                  {selectedMarkdownError && <div className="p-12 flex flex-col items-center justify-center text-center h-full"><div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mb-4"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 text-red-500"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg></div><h3 className="text-lg font-bold text-slate-900 mb-1">Unable to load content</h3><p className="text-slate-500 text-sm max-w-sm mb-6">{selectedMarkdownError}</p><button onClick={() => fetchPageMarkdown(selectedPage)} className="px-4 py-2 bg-slate-900 text-white text-sm rounded-lg hover:bg-slate-800 font-medium transition-colors">Retry Request</button></div>}
-                  {!isMarkdownLoading && !selectedMarkdownError && <div className="px-6 py-4 md:px-8 md:py-0"><ReactMarkdown remarkPlugins={[remarkGfm]} components={MarkdownComponents}>{selectedMarkdown}</ReactMarkdown></div>}
-                </div>
+                {/* Preview Tab */}
+                {activeTab === "preview" && (
+                  <div className="bg-white rounded-xl shadow-sm border border-slate-200 relative overflow-hidden">
+                    {isMarkdownLoading && <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-20 flex flex-col items-center justify-center"><div className="relative w-12 h-12"><div className="absolute inset-0 border-4 border-indigo-100 rounded-full"></div><div className="absolute inset-0 border-4 border-indigo-600 rounded-full border-t-transparent animate-spin"></div></div><p className="mt-4 text-sm font-medium text-slate-600 animate-pulse">Generating preview...</p></div>}
+                    {selectedMarkdownError && <div className="p-12 flex flex-col items-center justify-center text-center h-full"><div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mb-4"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 text-red-500"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg></div><h3 className="text-lg font-bold text-slate-900 mb-1">Unable to load content</h3><p className="text-slate-500 text-sm max-w-sm mb-6">{selectedMarkdownError}</p><button onClick={() => fetchPageMarkdown(selectedPage)} className="px-4 py-2 bg-slate-900 text-white text-sm rounded-lg hover:bg-slate-800 font-medium transition-colors">Retry Request</button></div>}
+                    {!isMarkdownLoading && !selectedMarkdownError && <div className="px-6 py-4 md:px-8 md:py-0"><ReactMarkdown remarkPlugins={[remarkGfm]} components={MarkdownComponents}>{selectedMarkdown}</ReactMarkdown></div>}
+                  </div>
+                )}
+
+                {/* Structure Verification Tab */}
+                {activeTab === "structure" && (
+                  <div className="px-6 py-6">
+                    {isMarkdownLoading ? (
+                      <div className="flex flex-col items-center justify-center py-24">
+                        <div className="relative w-12 h-12 mb-4">
+                          <div className="absolute inset-0 border-4 border-indigo-100 rounded-full"></div>
+                          <div className="absolute inset-0 border-4 border-indigo-600 rounded-full border-t-transparent animate-spin"></div>
+                        </div>
+                        <p className="text-sm font-medium text-slate-600">Loading structure analysis...</p>
+                      </div>
+                    ) : selectedMarkdownError ? (
+                      <div className="p-12 flex flex-col items-center justify-center text-center">
+                        <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mb-4">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 text-red-500">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                          </svg>
+                        </div>
+                        <h3 className="text-lg font-bold text-slate-900 mb-1">Cannot analyze structure</h3>
+                        <p className="text-slate-500 text-sm max-w-sm mb-6">{selectedMarkdownError}</p>
+                      </div>
+                    ) : (
+                      <StructurePanel markdown={selectedMarkdown} />
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
