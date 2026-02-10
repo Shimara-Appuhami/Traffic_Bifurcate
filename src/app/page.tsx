@@ -494,6 +494,7 @@ export default function Home() {
     setSelectedMarkdownError(null);
 
     async function hydrateMarkdown() {
+      if (!selectedPage) return;
       try {
         const entry = await fetchPageMarkdown(selectedPage);
         if (!entry || cancelled) return;
@@ -577,7 +578,7 @@ export default function Home() {
       setGeneratedAt(payload.generated_at ?? null);
       setSitemapPages(enrichedPages);
       setSelectedPage(enrichedPages[0] ?? null);
-      
+
       // --- FIX: Save Data for AiMirrorPage ---
       // This ensures that when you navigate to /ai-mirror, it has the data immediately.
       const aiMirrorSnapshot = {
@@ -589,7 +590,7 @@ export default function Home() {
       localStorage.setItem("ai-mirror-summary", JSON.stringify(aiMirrorSnapshot));
       // ---------------------------------------
 
-      setDisplayState("ai-mirror"); 
+      setDisplayState("ai-mirror");
       setTimeout(() => setDisplayState("ready"), 1000);
 
       setViewStage("progress");
@@ -631,12 +632,12 @@ export default function Home() {
     setMarkdownByUrl({});
     setMarkdownErrors({});
     setMarkdownLoadingMap({});
-    
+
     // --- FIX: Clear AI Mirror Data on Reset ---
     // This prevents old data from persisting if you start a new crawl
     try {
-        localStorage.removeItem("ai-mirror-summary");
-    } catch(e) { console.warn(e); }
+      localStorage.removeItem("ai-mirror-summary");
+    } catch (e) { console.warn(e); }
     // ----------------------------------------
   };
 
@@ -657,7 +658,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col items-center py-12 px-4 sm:px-6 lg:px-8 selection:bg-indigo-100 selection:text-indigo-700">
-      
+
       <style jsx global>{`
         @keyframes shimmer {
           0% { background-position: -1000px 0; }
@@ -781,11 +782,10 @@ export default function Home() {
             <div className="text-center space-y-2">
               <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-bold uppercase tracking-wider border border-indigo-100">
                 <span
-                  className={`w-2 h-2 rounded-full ${
-                    displayState === "ready"
+                  className={`w-2 h-2 rounded-full ${displayState === "ready"
                       ? "bg-emerald-500"
                       : "bg-indigo-500 animate-pulse"
-                  }`}
+                    }`}
                 ></span>
                 {displayState === "ready" ? "Process Complete" : "Processing"}
               </span>
@@ -793,8 +793,8 @@ export default function Home() {
                 {displayState === "ready"
                   ? "Your sitemaps are ready"
                   : displayState === "ai-mirror"
-                  ? "Building AI Mirror..."
-                  : "Crawling website structure"}
+                    ? "Building AI Mirror..."
+                    : "Crawling website structure"}
               </h2>
               <p className="text-slate-500">{rootUrl}</p>
             </div>
@@ -807,8 +807,8 @@ export default function Home() {
                   jsonComplete
                     ? "XML and JSON sitemaps successfully generated."
                     : jsonActive
-                    ? "Analyzing internal links and hierarchy..."
-                    : "Waiting for crawler initialization..."
+                      ? "Analyzing internal links and hierarchy..."
+                      : "Waiting for crawler initialization..."
                 }
                 statusLabel={jsonComplete ? "Ready" : jsonActive ? "Processing" : "Queued"}
                 statusTone={jsonComplete ? "success" : jsonActive ? "active" : "muted"}
@@ -834,8 +834,8 @@ export default function Home() {
                   aiComplete
                     ? "Content extracted and indexed for AI reflection."
                     : aiActive
-                    ? "Parsing content and extracting semantics..."
-                    : "Scheduled after sitemap generation."
+                      ? "Parsing content and extracting semantics..."
+                      : "Scheduled after sitemap generation."
                 }
                 statusLabel={aiComplete ? "Synced" : aiActive ? "Generating" : "Queued"}
                 statusTone={aiComplete ? "success" : aiActive ? "active" : "muted"}
