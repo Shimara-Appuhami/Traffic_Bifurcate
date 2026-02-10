@@ -53,10 +53,7 @@ export default async function AiMirror({ searchParams }: Params) {
     );
   }
 
-  const html = marked.parse(result.markdown, {
-    mangle: false,
-    headerIds: false,
-  }) as string;
+  const html = marked.parse(result.markdown) as string;
   const jsonLd = buildJsonLd(result);
 
   return (
