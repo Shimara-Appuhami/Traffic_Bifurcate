@@ -8,7 +8,6 @@ import {
 marked.setOptions({
   gfm: true,
   breaks: false,
-  smartypants: false,
 });
 
 export const runtime = "nodejs";
