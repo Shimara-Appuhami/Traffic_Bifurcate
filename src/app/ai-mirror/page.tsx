@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { SidebarRail } from "@/components/sidebar-rail";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -18,6 +19,8 @@ type ApiPage = {
 type EnrichedPage = ApiPage & {
   markdown?: string;
   lastModified?: string | null;
+  description?: string;
+  title?: string;
 };
 
 type AiMirrorSnapshot = {
@@ -207,11 +210,30 @@ const MarkdownComponents = {
 /* ----------------------------- Page Component ----------------------------- */
 
 export default function AiMirrorPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <p className="text-slate-500">Loading...</p>
+        </div>
+      </div>
+    }>
+      <AiMirrorPageContent />
+    </Suspense>
+  );
+}
+
+function AiMirrorPageContent() {
+  const searchParams = useSearchParams();
+  const sessionId = searchParams.get("sessionId");
+
   const [rootUrl, setRootUrl] = useState("");
   const [resultXml, setResultXml] = useState("");
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [sitemapPages, setSitemapPages] = useState<EnrichedPage[]>([]);
   const [selectedPage, setSelectedPage] = useState<EnrichedPage | null>(null);
+  const [isLoadingFromDb, setIsLoadingFromDb] = useState(false);
 
   // Cache for markdown content
   const [markdownByUrl, setMarkdownByUrl] = useState<Record<string, MarkdownCacheEntry>>({});
@@ -237,18 +259,45 @@ export default function AiMirrorPage() {
   /* ------------------------ Hydrate State ------------------------ */
 
   useEffect(() => {
-    const snapshot = loadAiMirrorSnapshot();
-    if (snapshot) {
-      setRootUrl(snapshot.rootUrl ?? "");
-      setResultXml(snapshot.resultXml ?? "");
-      setGeneratedAt(snapshot.generatedAt ?? null);
-      setSitemapPages(snapshot.sitemapPages ?? []);
-      setMarkdownByUrl({});
-      setSelectedMarkdown("");
-      setSelectedMarkdownError(null);
-      setSelectedPage(snapshot.sitemapPages?.[0] ?? null);
-    }
-  }, []);
+    const loadData = async () => {
+      // If sessionId is provided, load from MongoDB
+      if (sessionId) {
+        setIsLoadingFromDb(true);
+        try {
+          const response = await fetch(`/api/crawled-data?sessionId=${sessionId}`);
+          if (response.ok) {
+            const data = await response.json();
+            const pages = data.data || [];
+
+            // Set the pages from MongoDB
+            setSitemapPages(pages);
+            setSelectedPage(pages[0] || null);
+
+          }
+        } catch (error) {
+          console.error("Failed to load from MongoDB:", error);
+        } finally {
+          setIsLoadingFromDb(false);
+        }
+        return;
+      }
+
+      // Otherwise, load from localStorage (existing behavior)
+      const snapshot = loadAiMirrorSnapshot();
+      if (snapshot) {
+        setRootUrl(snapshot.rootUrl ?? "");
+        setResultXml(snapshot.resultXml ?? "");
+        setGeneratedAt(snapshot.generatedAt ?? null);
+        setSitemapPages(snapshot.sitemapPages ?? []);
+        setMarkdownByUrl({});
+        setSelectedMarkdown("");
+        setSelectedMarkdownError(null);
+        setSelectedPage(snapshot.sitemapPages?.[0] ?? null);
+      }
+    };
+
+    loadData();
+  }, [sessionId]);
 
   /* ---------------------- Fetch Markdown ------------------------- */
 
@@ -517,33 +566,54 @@ export default function AiMirrorPage() {
           <div className="w-80 flex-none bg-white border-r border-slate-200 flex flex-col">
             <div className="h-14 border-b border-slate-100 flex items-center px-4 justify-between flex-shrink-0">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Pages ({sitemapPages.length})</h3>
+              {isLoadingFromDb && (
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-xs text-slate-500">Loading...</span>
+                </div>
+              )}
             </div>
 
             <div className="flex-1 overflow-y-auto">
-              <div className="p-2 space-y-1">
-                {sitemapPages.map((page) => {
-                  const isActive = selectedPage?.url === page.url;
-                  const relativePath = page.url.replace(rootUrl, "").replace(/^\//, "") || "Home";
-                  return (
-                    <button
-                      key={page.url}
-                      onClick={() => setSelectedPage(page)}
-                      className={`w-full text-left flex items-center justify-between p-3 rounded-lg transition-all duration-200 group ${isActive ? "bg-indigo-50 border border-indigo-100 ring-1 ring-indigo-200 shadow-sm" : "border border-transparent hover:bg-slate-50 hover:border-slate-100 hover:shadow-sm"}`}
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className={`flex-shrink-0 p-1.5 rounded-md ${isActive ? "bg-indigo-100 text-indigo-600" : "bg-slate-100 text-slate-400 group-hover:text-slate-600"}`}>
-                          <GlobeIcon className="w-3.5 h-3.5" />
+              {isLoadingFromDb ? (
+                <div className="p-8 flex flex-col items-center justify-center text-center">
+                  <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                  <p className="text-sm text-slate-500">Loading crawled pages...</p>
+                </div>
+              ) : sitemapPages.length === 0 ? (
+                <div className="p-8 flex flex-col items-center justify-center text-center">
+                  <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+                    <FileTextIcon className="w-6 h-6 text-slate-400" />
+                  </div>
+                  <p className="text-sm text-slate-500">No pages found</p>
+                  <p className="text-xs text-slate-400 mt-1">Start a new crawl to see pages here</p>
+                </div>
+              ) : (
+                <div className="p-2 space-y-1">
+                  {sitemapPages.map((page) => {
+                    const isActive = selectedPage?.url === page.url;
+                    const relativePath = page.url.replace(rootUrl, "").replace(/^\//, "") || "Home";
+                    return (
+                      <button
+                        key={page.url}
+                        onClick={() => setSelectedPage(page)}
+                        className={`w-full text-left flex items-center justify-between p-3 rounded-lg transition-all duration-200 group ${isActive ? "bg-indigo-50 border border-indigo-100 ring-1 ring-indigo-200 shadow-sm" : "border border-transparent hover:bg-slate-50 hover:border-slate-100 hover:shadow-sm"}`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`flex-shrink-0 p-1.5 rounded-md ${isActive ? "bg-indigo-100 text-indigo-600" : "bg-slate-100 text-slate-400 group-hover:text-slate-600"}`}>
+                            <GlobeIcon className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <span className={`text-sm font-medium truncate ${isActive ? "text-indigo-900" : "text-slate-700"}`}>{relativePath}</span>
+                            <span className="text-[10px] text-slate-400 truncate">{formatDateDisplay(page.lastModified ?? generatedAt)}</span>
+                          </div>
                         </div>
-                        <div className="flex flex-col min-w-0">
-                          <span className={`text-sm font-medium truncate ${isActive ? "text-indigo-900" : "text-slate-700"}`}>{relativePath}</span>
-                          <span className="text-[10px] text-slate-400 truncate">{formatDateDisplay(page.lastModified ?? generatedAt)}</span>
-                        </div>
-                      </div>
-                      {formatPriority(page.priority)}
-                    </button>
-                  );
-                })}
-              </div>
+                        {formatPriority(page.priority)}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 

@@ -83,6 +83,17 @@ type StatusCardProps = {
   secondaryAction?: StatusCardAction;
 };
 
+// Type for crawl history from MongoDB
+type CrawlHistoryItem = {
+  sessionId: string;
+  siteDomain: string;
+  rootUrl: string;
+  pageCount: number;
+  generatedAt: string;
+  completedAt: string;
+  status: string;
+};
+
 // --- ICONS ---
 
 const DocumentIcon = ({ className }: { className?: string }) => (
@@ -773,6 +784,7 @@ export default function Home() {
                 </button>
               </div>
             </form>
+
           </div>
         )}
 
@@ -783,8 +795,8 @@ export default function Home() {
               <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-bold uppercase tracking-wider border border-indigo-100">
                 <span
                   className={`w-2 h-2 rounded-full ${displayState === "ready"
-                      ? "bg-emerald-500"
-                      : "bg-indigo-500 animate-pulse"
+                    ? "bg-emerald-500"
+                    : "bg-indigo-500 animate-pulse"
                     }`}
                 ></span>
                 {displayState === "ready" ? "Process Complete" : "Processing"}

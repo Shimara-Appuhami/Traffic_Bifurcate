@@ -428,9 +428,8 @@ export default function SitemapPreview({ searchParams }: Props) {
                                 setSelectedPage(page);
                               }
                             }}
-                            className={`border-t border-slate-100 focus-visible:outline-none ${
-                              isActive ? "bg-lime-50" : "hover:bg-slate-50"
-                            } cursor-pointer transition`}
+                            className={`border-t border-slate-100 focus-visible:outline-none ${isActive ? "bg-lime-50" : "hover:bg-slate-50"
+                              } cursor-pointer transition`}
                           >
                             <td className="px-4 py-3">
                               <div className="flex flex-col">

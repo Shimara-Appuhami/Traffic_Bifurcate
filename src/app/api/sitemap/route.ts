@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { JSDOM } from "jsdom";
+import { saveCrawledPages, saveCrawlSession, saveFeedData } from "@/lib/mongodb";
+import { randomUUID } from "crypto";
 
 export const runtime = "nodejs";
 
@@ -170,10 +172,56 @@ export async function POST(request: Request) {
     }
 
     const generatedAt = new Date().toISOString();
+    const completedAt = new Date();
+
+    // Generate session ID for this crawl
+    const sessionId = randomUUID();
 
     const xml = buildSitemapXml(siteDomain, pages, generatedAt);
     const markdown = buildMarkdownSummary(siteDomain, pages, generatedAt);
     const markdownEntries = buildMarkdownEntries(pages);
+
+    // Save crawl session to MongoDB
+    try {
+      await saveCrawlSession({
+        sessionId, // Save the UUID for linking to pages and feed
+        siteDomain,
+        rootUrl: normalizedRoot,
+        pageCount: pages.length,
+        generatedAt: new Date(generatedAt),
+        completedAt,
+        status: "completed",
+      });
+
+      // Save crawled pages to MongoDB
+      await saveCrawledPages(
+        pages.map((page) => ({
+          url: page.url,
+          ai_url: page.ai_url,
+          type: page.type,
+          priority: page.priority,
+        })),
+        sessionId
+      );
+
+      // Save feed data to MongoDB
+      await saveFeedData({
+        siteDomain,
+        rootUrl: normalizedRoot,
+        format: format === "xml" ? "xml" : format === "json" ? "json" : "both",
+        xmlContent: xml,
+        jsonContent: JSON.stringify({
+          site: siteDomain,
+          generated_at: generatedAt,
+          pages,
+        }),
+        pageCount: pages.length,
+        sessionId,
+      });
+    } catch (dbError) {
+      console.error("Failed to save crawl data to MongoDB:", dbError);
+      // Continue to return results even if DB save fails
+    }
 
     if (format === "xml") {
       return new NextResponse(xml, {

@@ -138,7 +138,7 @@ export default function FeedsWorkspace() {
             <h1 className="text-2xl font-bold text-slate-900">Sitemap Files</h1>
           </div>
           {/* Optional Header Actions */}
-        
+
         </header>
 
         {/* Main Workspace */}
@@ -157,8 +157,8 @@ export default function FeedsWorkspace() {
                         onClick={() => setFormat(option)}
                         className={`
                           flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200
-                          ${isActive 
-                            ? "bg-white text-slate-900 shadow-sm" 
+                          ${isActive
+                            ? "bg-white text-slate-900 shadow-sm"
                             : "text-slate-500 hover:text-slate-700"
                           }
                         `}
@@ -200,7 +200,7 @@ export default function FeedsWorkspace() {
 
               {/* Code Preview Pane */}
               <div className="flex-1 bg-slate-900 rounded-2xl shadow-inner border border-slate-800 overflow-hidden flex flex-col relative group">
-                
+
                 {/* Pseudo Window Header */}
                 <div className="h-10 bg-slate-800/50 border-b border-slate-800 flex items-center px-4 justify-between">
                   <div className="flex items-center gap-2">
@@ -239,7 +239,7 @@ export default function FeedsWorkspace() {
                 className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
               >
                 Go to Console
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
               </Link>
             </div>
           )}

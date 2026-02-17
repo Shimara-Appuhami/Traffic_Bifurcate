@@ -4,6 +4,7 @@ import {
   extractStructuredContent,
   type ExtractionResult,
 } from "@/lib/extractor";
+import { saveAIMirrorData, getAIMirrorByUrl } from "@/lib/mongodb";
 
 export const runtime = "nodejs";
 
@@ -11,12 +12,22 @@ export async function POST(request: Request) {
   try {
     const payload = await request.json().catch(() => ({}));
     const inputUrl = typeof payload?.url === "string" ? payload.url.trim() : "";
+    const sessionId = typeof payload?.sessionId === "string" ? payload.sessionId : undefined;
 
     if (!inputUrl) {
       return NextResponse.json(
         { error: "Provide a source URL to transform." },
         { status: 400 },
       );
+    }
+
+    // Check if we already have this URL cached
+    const cached = await getAIMirrorByUrl(inputUrl);
+    if (cached && !payload?.forceRefresh) {
+      return NextResponse.json({
+        ...cached,
+        cached: true,
+      });
     }
 
     const result = await extractStructuredContent(inputUrl);
@@ -41,6 +52,31 @@ export async function POST(request: Request) {
       last_updated: inferLastUpdated(result),
       canonical,
     };
+
+    // Save AI mirror data to MongoDB
+    try {
+      await saveAIMirrorData({
+        source_url: canonical,
+        mirror_url: mirrorUrl,
+        page_type: determinePageType(result),
+        intent: determineIntent(result),
+        language: result.metadata.language || "en",
+        summary,
+        key_topics: buildKeyTopics(result),
+        entities: buildEntities(result),
+        structured_content: structured,
+        markdown: result.markdown,
+        metadata: {
+          author: result.metadata.author,
+          published: result.metadata.published,
+          updated: result.metadata.updated,
+        },
+        sessionId,
+      });
+    } catch (dbError) {
+      console.error("Failed to save AI mirror data to MongoDB:", dbError);
+      // Continue to return results even if DB save fails
+    }
 
     return NextResponse.json(responseBody);
   } catch (error) {
