@@ -369,17 +369,59 @@ function AiMirrorPageContent() {
 
     try {
       const zip = new JSZip();
-      const folder = zip.folder("ai-mirror-content");
+      const mainFolder = zip.folder("ai-mirror-export");
+      const pagesFolder = mainFolder?.folder("pages");
 
-      const fileEntries: { filename: string, displayName: string }[] = [];
+      const fileEntries: { filename: string; displayName: string; fullPath: string }[] = [];
 
-      // Helper to sanitize filename
-      const getFilename = (url: string) => {
-        let name = url.replace(rootUrl, "").replace(/^\//, "");
-        name = name.replace(/[^a-z0-9-_\/]/gi, '_');
-        if (name.endsWith('/')) name = name.slice(0, -1);
-        if (!name) name = "home";
-        return `${name}.html`;
+      // Helper to create clean, readable filenames
+      const getFilename = (url: string, index: number) => {
+        try {
+          const urlObj = new URL(url);
+          let path = urlObj.pathname;
+
+          // Remove trailing slash
+          if (path.endsWith('/')) path = path.slice(0, -1);
+
+          // Get the last part of the path or use index
+          const parts = path.split('/').filter(Boolean);
+          let name = parts[parts.length - 1] || 'index';
+
+          // Clean the name
+          name = name.replace(/[^a-z0-9-_]/gi, '_');
+
+          // Limit length
+          if (name.length > 50) {
+            name = name.substring(0, 50);
+          }
+
+          // Add index prefix to ensure uniqueness
+          return `${String(index + 1).padStart(3, '0')}_${name}.html`;
+        } catch {
+          return `${String(index + 1).padStart(3, '0')}_page.html`;
+        }
+      };
+
+      // Helper to get display name for navigation
+      const getDisplayName = (url: string, index: number) => {
+        try {
+          const urlObj = new URL(url);
+          let path = urlObj.pathname;
+          if (path === '/' || !path) return '🏠 Home';
+
+          // Clean up the path for display
+          path = path.replace(/\/$/, '');
+          const parts = path.split('/').filter(Boolean);
+          const lastPart = parts[parts.length - 1];
+
+          // Format nicely
+          return lastPart
+            .replace(/[-_]/g, ' ')
+            .replace(/\b\w/g, l => l.toUpperCase())
+            .substring(0, 60);
+        } catch {
+          return `Page ${index + 1}`;
+        }
       };
 
       for (let i = 0; i < sitemapPages.length; i++) {
@@ -399,60 +441,145 @@ function AiMirrorPageContent() {
             });
             if (res.ok) {
               const rawText = (await res.text()).trim();
-              // CLEANSE THE CONTENT
               content = sanitizeMarkdown(rawText);
-
               setMarkdownByUrl(prev => ({ ...prev, [page.url]: { content, source: "live extract" } }));
             } else {
-              content = `# Error\n\nFailed to fetch content for ${page.url}. Status: ${res.status}`;
+              content = `# Error\n\nFailed to fetch content for ${page.url}`;
             }
           } catch (e) {
-            content = `# Error\n\nNetwork error fetching ${page.url}.`;
+            content = `# Error\n\nNetwork error fetching ${page.url}`;
           }
         }
 
         // Convert Markdown to HTML
         const htmlBody = await marked.parse(content);
 
-        // Build HTML Document
+        const filename = getFilename(page.url, i);
+        const displayName = getDisplayName(page.url, i);
+
+        // Build full HTML document with better styling
         const fullHtmlDocument = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${page.url}</title>
+    <title>${displayName} - AI Mirror Export</title>
+    <meta name="source-url" content="${page.url}">
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 2rem; }
-        h1, h2, h3 { margin-top: 1.5em; color: #111; }
-        p { margin-bottom: 1em; }
-        a { color: #0066cc; }
-        blockquote { border-left: 4px solid #ddd; padding-left: 1rem; color: #666; margin-left: 0; }
-        pre { background: #f4f4f4; padding: 1rem; overflow-x: auto; border-radius: 4px; }
-        code { background: #f4f4f4; padding: 2px 4px; border-radius: 3px; font-family: monospace; }
-        pre code { background: none; padding: 0; }
-        img { max-width: 100%; height: auto; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            line-height: 1.6; 
+            color: #1e293b; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 2rem;
+            background: #f8fafc;
+        }
+        .header { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            color: white; 
+            padding: 2rem; 
+            border-radius: 12px; 
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .header h1 { font-size: 1.75rem; margin-bottom: 0.5rem; }
+        .source-url { 
+            font-size: 0.875rem; 
+            opacity: 0.9; 
+            word-break: break-all;
+            background: rgba(255,255,255,0.1);
+            padding: 0.5rem;
+            border-radius: 6px;
+            margin-top: 0.5rem;
+        }
+        .content { 
+            background: white; 
+            padding: 2rem; 
+            border-radius: 12px;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+        }
+        h1, h2, h3 { margin-top: 1.5em; color: #1e293b; font-weight: 700; }
+        h1 { font-size: 2rem; border-bottom: 3px solid #667eea; padding-bottom: 0.5rem; }
+        h2 { font-size: 1.5rem; color: #334155; }
+        h3 { font-size: 1.25rem; color: #475569; }
+        p { margin-bottom: 1em; color: #334155; }
+        a { color: #667eea; text-decoration: none; font-weight: 500; }
+        a:hover { text-decoration: underline; }
+        blockquote { 
+            border-left: 4px solid #667eea; 
+            padding-left: 1rem; 
+            color: #64748b; 
+            margin: 1.5rem 0;
+            font-style: italic;
+        }
+        pre { 
+            background: #1e293b; 
+            color: #e2e8f0; 
+            padding: 1rem; 
+            overflow-x: auto; 
+            border-radius: 8px;
+            margin: 1.5rem 0;
+        }
+        code { 
+            background: #f1f5f9; 
+            color: #be123c;
+            padding: 2px 6px; 
+            border-radius: 4px; 
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.875em;
+        }
+        pre code { 
+            background: none; 
+            padding: 0; 
+            color: #e2e8f0;
+        }
+        ul, ol { margin-left: 1.5rem; margin-bottom: 1rem; }
+        li { margin-bottom: 0.5rem; }
+        img { max-width: 100%; height: auto; border-radius: 8px; margin: 1rem 0; }
+        table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; }
+        th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #e2e8f0; }
+        th { background: #f8fafc; font-weight: 600; color: #1e293b; }
+        .nav-button {
+            display: inline-block;
+            margin-top: 2rem;
+            padding: 0.75rem 1.5rem;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+        .nav-button:hover { background: #5568d3; }
     </style>
 </head>
 <body>
-    ${htmlBody}
+    <div class="header">
+        <h1>${displayName}</h1>
+        <div class="source-url">📄 Source: ${page.url}</div>
+    </div>
+    <div class="content">
+        ${htmlBody}
+    </div>
+    <a href="../index.html" class="nav-button">← Back to Index</a>
 </body>
 </html>
         `;
 
-        const filename = getFilename(page.url);
-        folder?.file(filename, fullHtmlDocument);
-
-        const displayName = page.url.replace(rootUrl, "").replace(/^\//, "") || "Home";
-        fileEntries.push({ filename, displayName });
+        pagesFolder?.file(filename, fullHtmlDocument);
+        fileEntries.push({ filename, displayName, fullPath: `pages/${filename}` });
       }
 
-      // 2. Generate Index.html Navigation
+      // Generate improved index.html
       setExportProgress("Creating navigation...");
-      const navigationList = fileEntries.map(entry => `
-        <li style="border-bottom: 1px solid #eee;">
-          <a href="${entry.filename}" style="display: block; padding: 12px 15px; text-decoration: none; color: #334155; font-weight: 500; transition: background 0.2s;">
-            ${entry.displayName}
+      const navigationList = fileEntries.map((entry, idx) => `
+        <li class="page-item">
+          <a href="${entry.fullPath}" class="page-link">
+            <span class="page-number">${idx + 1}</span>
+            <span class="page-title">${entry.displayName}</span>
           </a>
         </li>
       `).join('');
@@ -463,36 +590,138 @@ function AiMirrorPageContent() {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Index - Site Export</title>
+    <title>AI Mirror Export - ${rootUrl || 'Site'}</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.5; color: #1e293b; background-color: #f1f5f9; margin: 0; padding: 2rem; }
-        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); overflow: hidden; }
-        header { background: #4f46e5; padding: 1.5rem; color: white; text-align: center; }
-        h1 { margin: 0; font-size: 1.5rem; font-weight: 700; }
-        ul { list-style: none; margin: 0; padding: 0; }
-        li { transition: background-color 0.2s; }
-        li:hover { background-color: #f8fafc; }
-        a:hover { color: #4f46e5; }
-        .footer { padding: 1rem; text-align: center; font-size: 0.875rem; color: #64748b; border-top: 1px solid #e2e8f0; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            line-height: 1.5; 
+            color: #1e293b; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        .container { 
+            max-width: 800px; 
+            margin: 0 auto; 
+            background: white; 
+            border-radius: 16px; 
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); 
+            overflow: hidden;
+        }
+        header { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 2rem; 
+            color: white; 
+            text-align: center;
+        }
+        h1 { margin-bottom: 0.5rem; font-size: 2rem; font-weight: 700; }
+        .subtitle { opacity: 0.9; font-size: 0.875rem; }
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            padding: 1.5rem;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .stat { text-align: center; }
+        .stat-value { font-size: 1.5rem; font-weight: 700; color: #667eea; }
+        .stat-label { font-size: 0.75rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.25rem; }
+        ul { list-style: none; padding: 0; }
+        .page-item { border-bottom: 1px solid #e2e8f0; }
+        .page-item:last-child { border-bottom: none; }
+        .page-link {
+            display: flex;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            text-decoration: none;
+            color: #334155;
+            transition: all 0.2s;
+            gap: 1rem;
+        }
+        .page-link:hover { 
+            background: #f8fafc; 
+            color: #667eea;
+            padding-left: 2rem;
+        }
+        .page-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2rem;
+            height: 2rem;
+            background: #e0e7ff;
+            color: #667eea;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 0.875rem;
+            flex-shrink: 0;
+        }
+        .page-title {
+            flex: 1;
+            font-weight: 500;
+        }
+        .footer { 
+            padding: 1.5rem; 
+            text-align: center; 
+            font-size: 0.875rem; 
+            color: #64748b; 
+            background: #f8fafc;
+            border-top: 1px solid #e2e8f0;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>📄 Exported Pages</h1>
+            <h1>📦 AI Mirror Export</h1>
+            <div class="subtitle">${rootUrl || 'Exported Site'}</div>
         </header>
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-value">${sitemapPages.length}</div>
+                <div class="stat-label">Pages</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value">${new Date().toLocaleDateString()}</div>
+                <div class="stat-label">Exported</div>
+            </div>
+        </div>
         <ul>
             ${navigationList}
         </ul>
         <div class="footer">
-            Open any file to view the converted HTML.<br>Generated by AI Mirror
+            Click any page above to view it.<br>
+            Generated by Traffic Bifurcate AI Mirror
         </div>
     </div>
 </body>
 </html>
       `;
 
-      folder?.file("index.html", indexHtml);
+      mainFolder?.file("index.html", indexHtml);
+
+      // Add README
+      const readme = `# AI Mirror Export
+
+## Contents
+- **index.html** - Start here! Navigation page for all exported pages
+- **pages/** - Folder containing all ${sitemapPages.length} exported pages as HTML
+
+## How to Use
+1. Open **index.html** in your web browser
+2. Click on any page to view it
+3. Each page has a "Back to Index" button to return to the navigation
+
+## Source
+Exported from: ${rootUrl || 'N/A'}
+Date: ${new Date().toLocaleString()}
+Total Pages: ${sitemapPages.length}
+
+Generated by Traffic Bifurcate AI Mirror
+`;
+
+      mainFolder?.file("README.md", readme);
 
       setExportProgress("Compressing files...");
       const blob = await zip.generateAsync({ type: "blob" });
@@ -500,7 +729,8 @@ function AiMirrorPageContent() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `ai-mirror-${new Date().getTime()}.zip`;
+      const domain = rootUrl ? new URL(rootUrl).hostname : 'site';
+      a.download = `${domain}-ai-mirror-${new Date().getTime()}.zip`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
