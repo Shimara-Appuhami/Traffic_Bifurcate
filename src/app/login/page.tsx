@@ -3,6 +3,7 @@
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -35,8 +36,9 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
+      const normalizedEmail = email.toLowerCase();
       const result = await signIn("credentials", {
-        email,
+        email: normalizedEmail,
         password,
         redirect: false,
       });
@@ -75,10 +77,10 @@ export default function LoginPage() {
             </svg>
           </div>
           <h1 className="text-xl font-bold text-slate-900">
-            Welcome to Sitemap<span className="text-indigo-600">Pro</span>
+            Welcome back
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Sign in to access your sitemap tools
+            Sign in to Sitemap<span className="text-indigo-600">Pro</span>
           </p>
         </div>
 
@@ -126,12 +128,17 @@ export default function LoginPage() {
 
             {/* Password Field */}
             <div>
-              <label
-                htmlFor="password"
-                className="block text-xs font-medium text-slate-700 mb-1.5"
-              >
-                Password
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label
+                  htmlFor="password"
+                  className="block text-xs font-medium text-slate-700"
+                >
+                  Password
+                </label>
+                <Link href="/forgot-password" className="text-xs text-indigo-600 hover:text-indigo-500">
+                  Forgot?
+                </Link>
+              </div>
               <input
                 id="password"
                 type="password"
@@ -147,7 +154,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm bg-indigo-600 text-white rounded-lg font-semibold shadow-md hover:bg-indigo-700 hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm bg-indigo-600 text-white rounded-lg font-semibold shadow-md hover:bg-indigo-700 hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed mt-2"
             >
               {isLoading ? (
                 <>
@@ -257,10 +264,18 @@ export default function LoginPage() {
           </button>
         </div>
 
-        {/* Footer */}
-        <p className="mt-4 text-center text-xs text-slate-400">
-          By signing in, you agree to our Terms of Service and Privacy Policy
-        </p>
+        {/* Footer Links */}
+        <div className="mt-4 text-center">
+          <p className="text-xs text-slate-400 mb-2">
+            By signing in, you agree to our Terms of Service and Privacy Policy
+          </p>
+          <p className="text-xs text-slate-600">
+            Don't have an account?{' '}
+            <Link href="/signup" className="font-semibold text-indigo-600 hover:text-indigo-500">
+              Sign up
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );

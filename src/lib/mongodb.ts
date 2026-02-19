@@ -30,7 +30,17 @@ export const COLLECTIONS = {
   CRAWL_SESSIONS: "crawl_sessions",
   AI_MIRROR_DATA: "ai_mirror_data",
   FEED_DATA: "feed_data",
+  USERS: "users",
 } as const;
+
+// Types for users
+export interface User {
+  _id?: ObjectId;
+  email: string;
+  name: string;
+  password: string;
+  createdAt: Date;
+}
 
 // Types for crawled data
 export interface CrawledPage {
@@ -139,6 +149,27 @@ export async function getAIMirrorCollection(): Promise<Collection<AIMirrorData>>
 export async function getFeedCollection(): Promise<Collection<FeedData>> {
   const { db } = await connectToDatabase();
   return db.collection<FeedData>(COLLECTIONS.FEED_DATA);
+}
+
+// User operations
+export async function getUsersCollection(): Promise<Collection<User>> {
+  const { db } = await connectToDatabase();
+  return db.collection<User>(COLLECTIONS.USERS);
+}
+
+export async function createUser(user: Omit<User, "_id" | "createdAt">): Promise<string> {
+  const collection = await getUsersCollection();
+  const document = {
+    ...user,
+    createdAt: new Date(),
+  };
+  const result = await collection.insertOne(document);
+  return result.insertedId.toString();
+}
+
+export async function getUserByEmail(email: string): Promise<User | null> {
+  const collection = await getUsersCollection();
+  return collection.findOne({ email: email.toLowerCase() });
 }
 
 // CRUD operations for crawled data

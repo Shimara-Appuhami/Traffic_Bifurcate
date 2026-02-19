@@ -1,6 +1,15 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
+import { getUserByEmail } from "@/lib/mongodb";
+import { scryptSync } from "crypto";
+
+// Helper function to verify password
+function verifyPassword(password: string, hashedPassword: string): boolean {
+  const [salt, hash] = hashedPassword.split(":");
+  const inputHash = scryptSync(password, salt, 32).toString("hex");
+  return hash === inputHash;
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -15,17 +24,33 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        // TODO: Replace this with real database authentication
-        // For now, accept any email/password for testing
-        if (credentials?.email && credentials?.password) {
-          // Return user object
-          return {
-            id: "1",
-            email: credentials.email as string,
-            name: (credentials.email as string).split("@")[0],
-          };
+        if (!credentials?.email || !credentials?.password) {
+          return null;
         }
-        return null;
+
+        // Look up user in database (convert to lowercase to match registration)
+        const user = await getUserByEmail((credentials.email as string).toLowerCase());
+        
+        if (!user) {
+          return null;
+        }
+
+        // Verify password
+        const isValid = verifyPassword(
+          credentials.password as string,
+          user.password
+        );
+
+        if (!isValid) {
+          return null;
+        }
+
+        // Return user object
+        return {
+          id: user._id?.toString(),
+          email: user.email,
+          name: user.name,
+        };
       },
     }),
   ],
