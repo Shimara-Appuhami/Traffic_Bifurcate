@@ -9,6 +9,8 @@ import {
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
+import Link from "next/link";
 import matter from "gray-matter";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -325,6 +327,9 @@ function StatusCard({
 
 export default function Home() {
   const router = useRouter();
+  const { data: session, status } = useSession();
+  const isAuthenticated = status === "authenticated";
+  const isLoadingSession = status === "loading";
   const [rootUrl, setRootUrl] = useState("");
   const [depth, setDepth] = useState(2);
   const [viewStage, setViewStage] = useState<ViewStage>("form");
@@ -535,6 +540,14 @@ export default function Home() {
     event.preventDefault();
     if (!rootUrl || isLoading) return;
 
+    // Check if user is authenticated
+    if (!isAuthenticated) {
+      // Store the URL for after login
+      sessionStorage.setItem("pendingUrl", rootUrl);
+      router.push("/login");
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     setViewStage("progress");
@@ -712,6 +725,36 @@ export default function Home() {
             </p>
           </div>
         </div>
+
+        {/* User Menu - Show only for authenticated users */}
+        {isAuthenticated && !isLoadingSession && (
+          <div className="flex items-center gap-3">
+            <Link
+              href="/recent-crawls"
+              className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors flex items-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect width="7" height="9" x="3" y="3" rx="1"/>
+                <rect width="7" height="5" x="14" y="3" rx="1"/>
+                <rect width="7" height="9" x="14" y="12" rx="1"/>
+                <rect width="7" height="5" x="3" y="16" rx="1"/>
+              </svg>
+              Dashboard
+            </Link>
+            <button
+              onClick={() => signOut({ callbackUrl: "/" })}
+              className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" x2="9" y1="12" y2="12"/>
+              </svg>
+              Logout
+            </button>
+          </div>
+        )}
+
         {viewStage !== "form" && (
           <button
             onClick={handleReset}

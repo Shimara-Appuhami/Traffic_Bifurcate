@@ -7,11 +7,16 @@ import {
   deleteCrawlSession,
   getFeedDataBySession, // Added this import
 } from "@/lib/mongodb";
+import { auth } from "@/auth";
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const sessionId = searchParams.get("sessionId");
+
+    // Get current user
+    const session = await auth();
+    const userId = session?.user?.id;
 
     let data;
     if (sessionId) {
@@ -42,7 +47,8 @@ export async function GET(request: Request) {
         } : null,
       });
     } else {
-      data = await getCrawlHistory();
+      // Fetch crawl history filtered by userId if logged in
+      data = await getCrawlHistory(userId);
       return NextResponse.json({ data });
     }
   } catch (error) {

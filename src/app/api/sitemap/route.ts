@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { JSDOM } from "jsdom";
 import { saveCrawledPages, saveCrawlSession, saveFeedData } from "@/lib/mongodb";
 import { randomUUID } from "crypto";
+import { auth } from "@/auth";
 
 export const runtime = "nodejs";
 
@@ -183,8 +184,13 @@ export async function POST(request: Request) {
 
     // Save crawl session to MongoDB
     try {
+      // Get user ID from session
+      const session = await auth();
+      const userId = session?.user?.id;
+
       await saveCrawlSession({
         sessionId, // Save the UUID for linking to pages and feed
+        userId, // Save the user ID if logged in
         siteDomain,
         rootUrl: normalizedRoot,
         pageCount: pages.length,

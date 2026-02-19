@@ -69,6 +69,7 @@ export interface CrawledPage {
 export interface CrawlSession {
   _id?: ObjectId;
   sessionId?: string; // UUID for linking to crawled_data and feed_data
+  userId?: string; // User ID who created this crawl
   siteDomain: string;
   rootUrl: string;
   pageCount: number;
@@ -214,10 +215,11 @@ export async function getCrawledItemsBySession(
   return collection.find({ sessionId }).sort({ priority: -1 }).toArray();
 }
 
-export async function getCrawlHistory(): Promise<CrawlHistoryItem[]> {
+export async function getCrawlHistory(userId?: string): Promise<CrawlHistoryItem[]> {
   const collection = await getCrawlSessionsCollection();
+  const query = userId ? { userId } : {};
   const sessions = await collection
-    .find({})
+    .find(query)
     .sort({ generatedAt: -1 })
     .toArray();
 
