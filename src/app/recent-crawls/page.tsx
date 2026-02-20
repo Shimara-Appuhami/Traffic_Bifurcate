@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SidebarRail } from "@/components/sidebar-rail";
+import { loadFeedSnapshot, clearFeedSnapshot } from "@/lib/feed-storage";
 
 type CrawlHistoryItem = {
   sessionId: string;
@@ -20,6 +21,7 @@ export default function RecentCrawlsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchCrawlHistory = async () => {
@@ -40,8 +42,8 @@ export default function RecentCrawlsPage() {
     fetchCrawlHistory();
   }, []);
 
-  const handleDelete = async (sessionId: string, siteDomain: string) => {
-    // Using a custom confirm logic via window for simplicity, 
+  const handleDelete = async (sessionId: string, siteDomain: string, rootUrl: string) => {
+    // Using a custom confirm logic via window for simplicity,
     // but you could replace this with a Modal component
     const confirmDelete = window.confirm(
       `Are you sure you want to delete the crawl for ${siteDomain}?`
@@ -49,6 +51,7 @@ export default function RecentCrawlsPage() {
     if (!confirmDelete) return;
 
     setDeletingId(sessionId);
+    setDeleteError(null);
     try {
       const response = await fetch(
         `/api/crawled-data?sessionId=${sessionId}`,
@@ -57,12 +60,29 @@ export default function RecentCrawlsPage() {
         }
       );
       if (response.ok) {
+        // Remove from UI immediately on success
         setCrawlHistory((prev) =>
           prev.filter((item) => item.sessionId !== sessionId)
         );
+        // Clear the localStorage feed snapshot if it matches this crawl
+        const feedSnapshot = loadFeedSnapshot();
+        if (feedSnapshot && feedSnapshot.rootUrl === rootUrl) {
+          clearFeedSnapshot();
+        }
+        // Always clear the AI mirror localStorage snapshot when any crawl is deleted
+        // (the AI mirror shows the most recent crawl, so stale data should be cleared)
+        try {
+          localStorage.removeItem("ai-mirror-summary");
+        } catch {
+          // Ignore localStorage errors
+        }
+      } else {
+        const data = await response.json().catch(() => ({}));
+        setDeleteError(data.error || "Failed to delete crawl. Please try again.");
       }
     } catch (error) {
       console.error("Failed to delete crawl:", error);
+      setDeleteError("Network error. Please try again.");
     } finally {
       setDeletingId(null);
     }
@@ -155,6 +175,21 @@ export default function RecentCrawlsPage() {
               New Crawl
             </a>
           </header>
+
+          {/* Delete Error Banner */}
+          {deleteError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between gap-3">
+              <span className="text-sm text-red-700">{deleteError}</span>
+              <button
+                onClick={() => setDeleteError(null)}
+                className="text-red-400 hover:text-red-600 transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          )}
 
           {/* Content Area */}
           {isLoading ? (
@@ -330,7 +365,7 @@ export default function RecentCrawlsPage() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleDelete(session.sessionId, session.siteDomain);
+                          handleDelete(session.sessionId, session.siteDomain, session.rootUrl);
                         }}
                         disabled={deletingId === session.sessionId}
                         className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"

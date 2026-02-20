@@ -243,11 +243,27 @@ export async function deleteCrawledItem(url: string): Promise<boolean> {
 export async function deleteCrawlSession(sessionId: string): Promise<boolean> {
   const sessionsCollection = await getCrawlSessionsCollection();
   const dataCollection = await getCrawledDataCollection();
+  const feedCollection = await getFeedCollection();
+  const aiMirrorCollection = await getAIMirrorCollection();
 
-  await dataCollection.deleteMany({ sessionId });
-  const result = await sessionsCollection.deleteOne({
-    _id: new ObjectId(sessionId),
-  });
+  // Delete all related data for this session in parallel
+  await Promise.all([
+    dataCollection.deleteMany({ sessionId }),
+    feedCollection.deleteMany({ sessionId }),
+    aiMirrorCollection.deleteMany({ sessionId }),
+  ]);
+
+  // Try deleting by sessionId field (UUID) first, then fall back to _id
+  let result = await sessionsCollection.deleteOne({ sessionId });
+  if (result.deletedCount === 0) {
+    try {
+      result = await sessionsCollection.deleteOne({
+        _id: new ObjectId(sessionId),
+      });
+    } catch {
+      // sessionId is not a valid ObjectId, deletion already attempted above
+    }
+  }
 
   return result.deletedCount === 1;
 }

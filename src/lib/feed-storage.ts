@@ -31,3 +31,14 @@ export function loadFeedSnapshot(): PersistedFeedSnapshot | null {
     return null;
   }
 }
+
+export function clearFeedSnapshot() {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    window.localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Ignore errors
+  }
+}

@@ -285,6 +285,26 @@ function AiMirrorPageContent() {
       // Otherwise, load from localStorage (existing behavior)
       const snapshot = loadAiMirrorSnapshot();
       if (snapshot) {
+        // Validate that the session still exists in the database
+        // by checking the crawl history for a matching rootUrl
+        try {
+          const historyResponse = await fetch("/api/crawled-data");
+          if (historyResponse.ok) {
+            const historyData = await historyResponse.json();
+            const sessions: Array<{ rootUrl: string }> = historyData.data || [];
+            const sessionExists = sessions.some(
+              (s) => s.rootUrl === snapshot.rootUrl
+            );
+            if (!sessionExists) {
+              // Session was deleted, clear the localStorage snapshot
+              try { localStorage.removeItem("ai-mirror-summary"); } catch { /* ignore */ }
+              return; // Show empty state
+            }
+          }
+        } catch {
+          // If validation fails, still show the cached data
+        }
+
         setRootUrl(snapshot.rootUrl ?? "");
         setResultXml(snapshot.resultXml ?? "");
         setGeneratedAt(snapshot.generatedAt ?? null);
