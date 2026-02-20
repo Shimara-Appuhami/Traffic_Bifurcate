@@ -8,13 +8,12 @@ export default function ForgotPasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [resetUrl, setResetUrl] = useState(""); // Only shown in development
+  const [resetUrl, setResetUrl] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setSuccess("");
-    setResetUrl("");
 
     if (!email) {
       setError("Please enter your email address");
@@ -43,13 +42,9 @@ export default function ForgotPasswordPage() {
         // User not found in database
         setError(data.message);
       } else {
-        // User found - show success with reset link
+        // User found - show success message
         setSuccess(data.message);
         setError("");
-        // Show reset URL for testing (in production, this would be emailed)
-        if (data.resetUrl) {
-          setResetUrl(data.resetUrl);
-        }
       }
     } catch {
       setError("Network error. Please try again.");
@@ -125,22 +120,6 @@ export default function ForgotPasswordPage() {
                 </svg>
                 <span className="text-xs text-green-700">{success}</span>
               </div>
-              {resetUrl && (
-                <div className="mt-2 p-2 bg-green-100 rounded border border-green-200">
-                  <p className="text-xs text-green-800 font-medium mb-1">
-                    Click the link below to reset your password:
-                  </p>
-                  <Link
-                    href={resetUrl}
-                    className="text-xs text-indigo-600 hover:text-indigo-800 break-all underline"
-                  >
-                    {resetUrl}
-                  </Link>
-                  <p className="text-xs text-green-600 mt-2 italic">
-                    (In production, this link will be sent to your email)
-                  </p>
-                </div>
-              )}
             </div>
           )}
 
