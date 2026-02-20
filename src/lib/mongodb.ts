@@ -32,6 +32,7 @@ export const COLLECTIONS = {
   AI_MIRROR_DATA: "ai_mirror_data",
   FEED_DATA: "feed_data",
   USERS: "users",
+  PASSWORD_RESET_TOKENS: "password_reset_tokens",
 } as const;
 
 // Types for users
@@ -172,6 +173,52 @@ export async function createUser(user: Omit<User, "_id" | "createdAt">): Promise
 export async function getUserByEmail(email: string): Promise<User | null> {
   const collection = await getUsersCollection();
   return collection.findOne({ email: email.toLowerCase() });
+}
+
+export async function updateUserPassword(email: string, hashedPassword: string): Promise<boolean> {
+  const collection = await getUsersCollection();
+  const result = await collection.updateOne(
+    { email: email.toLowerCase() },
+    { $set: { password: hashedPassword } }
+  );
+  return result.modifiedCount === 1;
+}
+
+// Password reset token operations
+export interface PasswordResetToken {
+  _id?: ObjectId;
+  email: string;
+  token: string;
+  expiresAt: Date;
+  createdAt: Date;
+}
+
+export async function getPasswordResetTokensCollection(): Promise<Collection<PasswordResetToken>> {
+  const { db } = await connectToDatabase();
+  return db.collection<PasswordResetToken>(COLLECTIONS.PASSWORD_RESET_TOKENS);
+}
+
+export async function createPasswordResetToken(email: string, token: string): Promise<void> {
+  const collection = await getPasswordResetTokensCollection();
+  // Delete any existing tokens for this email
+  await collection.deleteMany({ email: email.toLowerCase() });
+  // Create new token that expires in 1 hour
+  await collection.insertOne({
+    email: email.toLowerCase(),
+    token,
+    expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
+    createdAt: new Date(),
+  });
+}
+
+export async function getPasswordResetToken(token: string): Promise<PasswordResetToken | null> {
+  const collection = await getPasswordResetTokensCollection();
+  return collection.findOne({ token, expiresAt: { $gt: new Date() } });
+}
+
+export async function deletePasswordResetToken(token: string): Promise<void> {
+  const collection = await getPasswordResetTokensCollection();
+  await collection.deleteOne({ token });
 }
 
 // CRUD operations for crawled data
