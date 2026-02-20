@@ -742,7 +742,13 @@ export default function Home() {
               Dashboard
             </Link>
             <button
-              onClick={() => signOut({ callbackUrl: "/" })}
+              onClick={() => {
+                try {
+                  localStorage.removeItem("ai-mirror-summary");
+                  localStorage.removeItem("traffic-bifurcate-feed");
+                } catch { /* ignore */ }
+                signOut({ callbackUrl: "/" });
+              }}
               className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

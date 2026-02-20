@@ -259,7 +259,14 @@ export function SidebarRail({
           {/* User Profile Card */}
           <button
             type="button"
-            onClick={() => signOut({ callbackUrl: "/login" })}
+            onClick={() => {
+              // Clear localStorage data on sign-out to prevent data leakage between users
+              try {
+                localStorage.removeItem("ai-mirror-summary");
+                localStorage.removeItem("traffic-bifurcate-feed");
+              } catch { /* ignore */ }
+              signOut({ callbackUrl: "/login" });
+            }}
             className="flex w-full items-center gap-3 rounded-xl border border-transparent p-2 text-left transition-all hover:border-slate-200 hover:bg-white group"
           >
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-tr from-slate-700 to-slate-500 text-white text-[10px] font-bold shadow-sm">

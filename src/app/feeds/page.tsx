@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { SidebarRail } from "@/components/sidebar-rail";
 import {
   loadFeedSnapshot,
+  clearFeedSnapshot,
   type PersistedFeedSnapshot,
 } from "@/lib/feed-storage";
 
@@ -91,7 +92,32 @@ export default function FeedsWorkspace() {
   const [copyState, setCopyState] = useState<CopyState>("idle");
 
   useEffect(() => {
-    setSnapshot(loadFeedSnapshot());
+    const validateAndLoadSnapshot = async () => {
+      const cached = loadFeedSnapshot();
+      if (!cached) return;
+
+      // Validate that the cached snapshot belongs to the current user
+      // by checking if the rootUrl exists in the user's crawl history
+      try {
+        const response = await fetch("/api/crawled-data");
+        if (response.ok) {
+          const data = await response.json();
+          const sessions: Array<{ rootUrl: string }> = data.data || [];
+          const sessionExists = sessions.some((s) => s.rootUrl === cached.rootUrl);
+          if (!sessionExists) {
+            // Snapshot belongs to a different user or was deleted, clear it
+            clearFeedSnapshot();
+            return;
+          }
+        }
+      } catch {
+        // If validation fails, still show the cached data
+      }
+
+      setSnapshot(cached);
+    };
+
+    validateAndLoadSnapshot();
   }, []);
 
   useEffect(() => {
